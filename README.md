@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psicometría Open Source - Base de Datos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        .modal-overlay {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #10b981;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="text-slate-900 antialiased">
+
+    <div class="max-w-5xl mx-auto px-4 py-8 md:py-12">
+        <!-- Encabezado -->
+        <header class="mb-12 text-center">
+            <div class="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-xs font-bold mb-4 uppercase tracking-widest">
+                <i class="fas fa-unlock"></i> Acceso Libre y Gratuito
+            </div>
+            <h1 class="text-4xl md:text-5xl font-extrabold text-slate-800 tracking-tight mb-4">
+                Psicometría <span class="text-emerald-600">Open Source</span>
+            </h1>
+            <p class="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">
+                Base de datos interactiva con 10 instrumentos de personalidad validados, gratuitos para descarga y uso académico.
+            </p>
+        </header>
+
+        <!-- Buscador -->
+        <div class="relative mb-12 max-w-xl mx-auto">
+            <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+            <input 
+                type="text" 
+                id="searchInput"
+                placeholder="Buscar por nombre, autor o rasgo..." 
+                class="w-full pl-14 pr-6 py-5 bg-white border-0 shadow-xl shadow-slate-200/50 rounded-2xl focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-lg"
+            >
+        </div>
+
+        <!-- Grid de Instrumentos -->
+        <div id="instrumentsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Los instrumentos se inyectan vía JS -->
+        </div>
+
+        <!-- Estado Vacío -->
+        <div id="noResults" class="hidden text-center py-20">
+            <i class="fas fa-search text-slate-200 text-6xl mb-4"></i>
+            <p class="text-slate-400 text-xl">No se encontraron resultados para tu búsqueda.</p>
+        </div>
+
+        <footer class="mt-20 py-12 border-t border-slate-200 text-center">
+            <p class="text-slate-400 text-sm max-w-xl mx-auto">
+                Nota: Todos los enlaces apuntan a sitios oficiales de investigación. 
+                Se recomienda revisar la licencia de uso en cada sitio para publicaciones formales.
+            </p>
+        </footer>
+    </div>
+
+    <!-- Modal de Detalles -->
+    <div id="modalOverlay" class="modal-overlay fixed inset-0 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col">
+            <div id="modalHeader" class="bg-emerald-600 p-8 text-white">
+                <button onclick="closeModal()" class="absolute top-6 right-6 hover:bg-white/20 p-2 rounded-full transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                <h2 id="modalTitle" class="text-2xl font-bold pr-10 mb-1"></h2>
+                <p id="modalAuthor" class="opacity-90"></p>
+            </div>
+            
+            <div class="p-8 overflow-y-auto custom-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <i class="fas fa-info-circle text-emerald-600"></i> Descripción
+                            </h4>
+                            <p id="modalDesc" class="text-slate-600 text-sm leading-relaxed"></p>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <i class="fas fa-check-circle text-emerald-600"></i> Uso Recomendado
+                            </h4>
+                            <p id="modalUse" class="text-slate-600 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-50 p-6 rounded-2xl space-y-4">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-500">Población:</span>
+                            <span id="modalPop" class="font-bold text-slate-700"></span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-500">Ítems:</span>
+                            <span id="modalItems" class="font-bold text-slate-700"></span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-500">Tiempo:</span>
+                            <span id="modalTime" class="font-bold text-slate-700"></span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-500">Acceso:</span>
+                            <span class="font-bold text-emerald-600">Gratuito</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4">
+                    <a id="modalDownload" href="#" target="_blank" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-200">
+                        <i class="fas fa-download"></i> Descargar Instrumento
+                    </a>
+                    <button onclick="closeModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-4 rounded-xl font-bold transition-all">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const instrumentos = [
+            {
+                nombre: "IPIP-NEO (Inventario de Personalidad IPIP)",
+                autor: "Lewis R. Goldberg / John A. Johnson",
+                poblacion: "Adultos (18+ años)",
+                objetivo: "Medir los 5 Grandes Factores de la personalidad (Modelo Big Five).",
+                tiempo: "20-40 min",
+                items: "120 o 300",
+                link: "https://ipip.ori.org/",
+                descripcion: "Es la alternativa de código abierto al NEO-PI-R. Permite a investigadores acceder a los ítems exactos para su aplicación sin pagar regalías.",
+                uso: "Investigación académica y autoconocimiento profundo."
+            },
+            {
+                nombre: "Big Five Inventory-2 (BFI-2)",
+                autor: "Christopher J. Soto y Oliver P. John",
+                poblacion: "Adolescentes y Adultos",
+                objetivo: "Evaluación jerárquica de los 5 grandes y 15 facetas específicas.",
+                tiempo: "5-10 min",
+                items: "60",
+                link: "https://www.colby.edu/academics/departments-and-programs/psychology/research-opportunities/personality-lab/the-bfi-2/",
+                descripcion: "Una de las herramientas más robustas. Existe una versión corta (30 ítems) y una extra-corta (15 ítems).",
+                uso: "Estudios psicológicos y evaluación de personalidad general."
+            },
+            {
+                nombre: "HEXACO-PI-R",
+                autor: "Kibeom Lee y Michael C. Ashton",
+                poblacion: "Adultos",
+                objetivo: "Evaluar el modelo de 6 dimensiones (incluye Honestidad-Humildad).",
+                tiempo: "15-20 min",
+                items: "60, 100 o 200",
+                link: "https://hexaco.org/hexaco-inventory",
+                descripcion: "Añade la dimensión de Honestidad-Humildad, crucial para detectar comportamientos éticos y narcisismo.",
+                uso: "Selección ética e investigación de valores sociales."
+            },
+            {
+                nombre: "PID-5 (Inventario DSM-5)",
+                autor: "APA (American Psychiatric Association)",
+                poblacion: "Adultos y Adolescentes",
+                objetivo: "Evaluar rasgos de personalidad desadaptativos (Patológicos).",
+                tiempo: "20-30 min",
+                items: "220",
+                link: "https://www.psychiatry.org/psychiatrists/practice/dsm/educational-resources/assessment-measures",
+                descripcion: "Herramienta oficial para evaluar trastornos de la personalidad desde una perspectiva dimensional.",
+                uso: "Diagnóstico clínico y planificación de tratamiento."
+            },
+            {
+                nombre: "Dark Triad Dirty Dozen (DTDD)",
+                autor: "Peter K. Jonason y Gregory D. Webster",
+                poblacion: "Adultos",
+                objetivo: "Detección de Maquiavelismo, Narcisismo y Psicopatía.",
+                tiempo: "2-5 min",
+                items: "12",
+                link: "https://rdcu.be/dF9S6",
+                descripcion: "Escala ultrarrápida para identificar el lado oscuro de la personalidad.",
+                uso: "Screening rápido en psicología organizacional."
+            },
+            {
+                nombre: "Ten-Item Personality Inventory (TIPI)",
+                autor: "Samuel D. Gosling",
+                poblacion: "Adultos",
+                objetivo: "Medición breve de los 5 grandes cuando el tiempo es crítico.",
+                tiempo: "1-2 min",
+                items: "10",
+                link: "https://gosling.psy.utexas.edu/scales-weve-developed/ten-item-personality-inventory-tipi/",
+                descripcion: "Diseñado para situaciones donde no es posible aplicar un test largo. Sacrifica algo de fiabilidad por brevedad.",
+                uso: "Encuestas masivas y estudios de mercado."
+            },
+            {
+                nombre: "MPQ-BF (Multidimensional Personality)",
+                autor: "Auke Tellegen (Versión breve)",
+                poblacion: "Adultos",
+                objetivo: "Evaluar dimensiones de temperamento y personalidad normal.",
+                tiempo: "15 min",
+                items: "155",
+                link: "https://www.upress.umn.edu/test-division/mpq",
+                descripcion: "Mide bienestar, logro, control social y agresión. Útil en genética de la conducta.",
+                uso: "Investigación sobre temperamento y bienestar."
+            },
+            {
+                nombre: "OEJTS (Jungian Type Scales)",
+                autor: "Eric Jorgenson (Open Source)",
+                poblacion: "Adultos",
+                objetivo: "Alternativa abierta al MBTI (Tipologías de Jung).",
+                tiempo: "10-15 min",
+                items: "32",
+                link: "https://openpsychometrics.org/tests/OEJTS/",
+                descripcion: "Proporciona una clasificación similar a la de Myers-Briggs pero bajo desarrollo de código abierto.",
+                uso: "Orientación vocacional y dinámicas de grupo."
+            },
+            {
+                nombre: "Short Dark Triad (SD3)",
+                autor: "Delroy L. Paulhus y Daniel N. Jones",
+                poblacion: "Adultos",
+                objetivo: "Medición más detallada de la Tríada Oscura.",
+                tiempo: "10 min",
+                items: "27",
+                link: "https://web.archive.org/web/20150212001700/http://mospace.umsystem.edu/xmlui/handle/10355/15456",
+                descripcion: "Ofrece mayor validez que el Dirty Dozen al dedicar más ítems a cada rasgo oscuro.",
+                uso: "Psicología forense y organizacional."
+            },
+            {
+                nombre: "Rosenberg Self-Esteem Scale (RSES)",
+                autor: "Morris Rosenberg",
+                poblacion: "Adolescentes y Adultos",
+                objetivo: "Evaluar la autoestima global.",
+                tiempo: "5 min",
+                items: "10",
+                link: "https://sjdm.org/dmedit/html/scales/rosenberg-self-esteem.html",
+                descripcion: "La escala más utilizada en la historia para medir la valía personal percibida.",
+                uso: "Evaluación clínica inicial."
+            }
+        ];
+
+        const grid = document.getElementById('instrumentsGrid');
+        const searchInput = document.getElementById('searchInput');
+        const noResults = document.getElementById('noResults');
+        const modal = document.getElementById('modalOverlay');
+
+        function renderInstruments(data) {
+            grid.innerHTML = '';
+            if (data.length === 0) {
+                noResults.classList.remove('hidden');
+                return;
+            }
+            noResults.classList.add('hidden');
+
+            data.forEach((inst, index) => {
+                const card = document.createElement('div');
+                card.className = 'glass-card border border-slate-100 p-8 rounded-3xl cursor-pointer flex flex-col group';
+                card.onclick = () => openModal(inst);
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="bg-emerald-50 text-emerald-600 p-3 rounded-2xl group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                            <i class="fas fa-file-alt text-xl"></i>
+                        </div>
+                        <span class="text-[10px] font-extrabold bg-slate-100 text-slate-500 px-3 py-1 rounded-full uppercase tracking-widest">
+                            ${inst.items} Ítems
+                        </span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-800 mb-2 italic leading-tight group-hover:text-emerald-700 transition-colors">
+                        ${inst.nombre}
+                    </h3>
+                    <p class="text-sm text-slate-400 mb-4 font-semibold uppercase tracking-wider">${inst.autor}</p>
+                    <p class="text-slate-600 text-sm mb-8 line-clamp-2">${inst.objetivo}</p>
+                    <div class="flex items-center justify-between mt-auto pt-6 border-t border-slate-50">
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                                <i class="far fa-clock"></i> <span>${inst.tiempo}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                                <i class="far fa-user"></i> <span>${inst.poblacion.split(' ')[0]}</span>
+                            </div>
+                        </div>
+                        <span class="text-emerald-600 font-bold text-sm flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                            Detalles <i class="fas fa-chevron-right text-xs"></i>
+                        </span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openModal(inst) {
+            document.getElementById('modalTitle').innerText = inst.nombre;
+            document.getElementById('modalAuthor').innerText = inst.autor;
+            document.getElementById('modalDesc').innerText = inst.descripcion;
+            document.getElementById('modalUse').innerText = inst.uso;
+            document.getElementById('modalPop').innerText = inst.poblacion;
+            document.getElementById('modalItems').innerText = inst.items;
+            document.getElementById('modalTime').innerText = inst.tiempo;
+            document.getElementById('modalDownload').href = inst.link;
+            
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Cerrar modal al hacer click fuera
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+
+        // Buscador
+        searchInput.oninput = (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = instrumentos.filter(i => 
+                i.nombre.toLowerCase().includes(term) || 
+                i.autor.toLowerCase().includes(term)
+            );
+            renderInstruments(filtered);
+        };
+
+        // Inicializar
+        renderInstruments(instrumentos);
+    </script>
+</body>
+</html>
